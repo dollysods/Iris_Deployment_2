@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+from sklearn.datasets import load_iris
 
 def predict(data):
     clf = joblib.load("rf_model.sav")
@@ -15,6 +16,7 @@ def class_to_image(class_name):
         return "images/versicolor.jpg"  # Replace with the actual path to your versicolor image
     elif class_name == "virginica":
         return "images/virginica.jpg"  # Replace with the actual path to your virginica image
+    return None
 
 st.title('Classifying Iris Flowers')
 st.markdown('Model to classify iris flowers into \
@@ -38,11 +40,33 @@ st.text('')
 if st.button("Predict type of Iris"):
     result = predict(
         np.array([[sepal_l, sepal_w, petal_l, petal_w]]))
-    st.text(result[0])
+    # result[0] can be an integer label (0,1,2) or a string; map to class name
+    raw_pred = result[0]
+
+    # load target names from Iris dataset
+    iris = load_iris()
+    target_names = list(iris.target_names)
+
+    # determine class_name robustly
+    if isinstance(raw_pred, (np.integer, int)):
+        class_name = target_names[int(raw_pred)]
+    else:
+        # if prediction is a bytestring or a string possibly like '0-setosa', normalize
+        pred_str = str(raw_pred)
+        if "-" in pred_str:
+            # handle formats like '0-setosa' or 'label-setosa'
+            class_name = pred_str.split("-", 1)[1]
+        else:
+            class_name = pred_str
+
+    st.text(f"Predicted: {class_name}")
 
     # Display the image/icon corresponding to the predicted class
-    image_path = class_to_image(result[0].split("-")[1])
-    st.image(image_path, use_column_width=True)
+    image_path = class_to_image(class_name)
+    if image_path:
+        st.image(image_path, use_column_width=True)
+    else:
+        st.warning(f"No image available for class '{class_name}'")
 
 
 st.text('')
